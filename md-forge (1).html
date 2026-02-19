@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MD FORGE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:      #f5f4f0;
+    --white:   #ffffff;
+    --border:  #e0ddd6;
+    --text:    #1a1a1a;
+    --muted:   #9a9690;
+    --yellow:  #f5c842;
+    --red:     #e84040;
+    --radius:  6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--yellow);
+    border-radius: 50%;
+  }
+  .header-sub { font-size: 11px; color: var(--muted); }
+
+  /* LAYOUT */
+  .workspace {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  aside {
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .drop-zone {
+    margin: 16px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .15s;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--text);
+    background: #edeae3;
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+  .drop-icon { font-size: 24px; margin-bottom: 8px; }
+  .drop-label { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .drop-label strong { color: var(--text); font-weight: 500; }
+
+  .section-label {
+    padding: 10px 16px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .count-badge {
+    background: var(--yellow);
+    color: #000;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .file-empty {
+    padding: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    cursor: grab;
+    transition: background .1s;
+    border: 1px solid transparent;
+  }
+  .file-item:hover { background: var(--bg); }
+  .file-item.dragging { opacity: .3; }
+  .file-item.drag-target { border-color: var(--yellow); background: #fdf9ec; }
+  .drag-handle { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+  .file-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    min-width: 16px; text-align: right; flex-shrink: 0;
+  }
+  .file-name {
+    font-size: 12px; color: var(--text);
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .file-del {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 15px; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; opacity: 0; transition: opacity .1s; flex-shrink: 0;
+  }
+  .file-item:hover .file-del { opacity: 1; }
+  .file-del:hover { background: #fee; color: var(--red); }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer;
+    border-radius: var(--radius);
+    transition: all .12s;
+  }
+  .btn-primary { background: var(--text); color: #fff; }
+  .btn-primary:hover { background: #333; }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); font-size: 12px;
+  }
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+  /* MAIN */
+  main {
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .toolbar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .toolbar-group { display: flex; align-items: center; gap: 8px; }
+  .toolbar-label { font-size: 12px; color: var(--muted); }
+
+  select.sel {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Inter', sans-serif;
+    font-size: 12px; padding: 5px 10px;
+    border-radius: var(--radius); outline: none; cursor: pointer;
+  }
+  select.sel:focus { border-color: var(--text); }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .toggle { position: relative; width: 30px; height: 17px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .tslider {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 17px; transition: .15s; cursor: pointer;
+  }
+  .tslider::before {
+    content: ''; position: absolute;
+    width: 11px; height: 11px; border-radius: 50%;
+    left: 3px; top: 3px; background: #fff;
+    transition: .15s; box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .toggle input:checked + .tslider { background: var(--text); }
+  .toggle input:checked + .tslider::before { transform: translateX(13px); }
+
+  .toolbar-divider { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
+
+  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .word-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+  .btn-sm {
+    padding: 6px 12px; font-size: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--white); color: var(--text);
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    font-weight: 500; transition: all .12s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .btn-sm:hover { background: var(--bg); border-color: var(--text); }
+
+  /* OUTPUT */
+  #output-wrap {
+    flex: 1; overflow-y: auto;
+    padding: 48px 64px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .empty-state {
+    height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; text-align: center;
+  }
+  .empty-icon {
+    width: 52px; height: 52px;
+    border: 1.5px dashed var(--border); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 4px;
+  }
+  .empty-state h3 { font-size: 15px; font-weight: 500; color: var(--text); }
+  .empty-state p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  #raw-output {
+    display: none; flex: 1; overflow-y: auto;
+    padding: 32px 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; line-height: 1.8;
+    color: var(--text); white-space: pre-wrap;
+    word-break: break-word; background: var(--white);
+    scrollbar-width: thin;
+  }
+
+  .md-sep {
+    display: flex; align-items: center; gap: 16px; margin: 40px 0;
+  }
+  .md-sep::before, .md-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .md-sep span {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted); background: var(--bg); padding: 2px 10px;
+    border: 1px solid var(--border); border-radius: 20px; white-space: nowrap;
+  }
+
+  /* MARKDOWN */
+  .md-body { max-width: 720px; line-height: 1.8; }
+  .md-body h1 {
+    font-size: 26px; font-weight: 600; margin: 0 0 20px;
+    padding-bottom: 10px; border-bottom: 1.5px solid var(--border);
+  }
+  .md-body h2 { font-size: 20px; font-weight: 600; margin: 28px 0 10px; }
+  .md-body h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
+  .md-body h4, .md-body h5, .md-body h6 {
+    font-size: 13px; font-weight: 500; color: var(--muted); margin: 14px 0 6px;
+  }
+  .md-body p { margin-bottom: 12px; font-weight: 300; font-size: 14px; }
+  .md-body a { color: #2563eb; text-decoration: none; border-bottom: 1px solid #bfdbfe; }
+  .md-body a:hover { border-bottom-color: #2563eb; }
+  .md-body strong { font-weight: 600; }
+  .md-body code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #ede9e0; color: #c53030;
+    padding: 1px 5px; border-radius: 3px; font-size: 12px;
+  }
+  .md-body pre {
+    background: #1e1e1e; border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; margin: 14px 0;
+  }
+  .md-body pre code { background: none; color: #d4d4d4; padding: 0; font-size: 12px; line-height: 1.7; }
+  .md-body blockquote {
+    border-left: 3px solid var(--yellow); padding: 10px 18px;
+    margin: 14px 0; background: #fdf9ec; color: #666;
+  }
+  .md-body ul, .md-body ol { padding-left: 22px; margin-bottom: 12px; }
+  .md-body li { margin-bottom: 4px; font-weight: 300; }
+  .md-body table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  .md-body th {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 7px 12px; text-align: left; font-weight: 500; font-size: 11px; color: var(--muted);
+  }
+  .md-body td { border: 1px solid var(--border); padding: 7px 12px; }
+  .md-body hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .md-body img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
+
+  /* NOTIFICATION */
+  .notif {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--text); color: #fff;
+    font-size: 12px; font-weight: 500;
+    padding: 8px 16px; border-radius: var(--radius);
+    transform: translateY(40px); opacity: 0;
+    transition: all .2s; z-index: 999; pointer-events: none;
+  }
+  .notif.show { transform: translateY(0); opacity: 1; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 700px) {
+    .workspace { grid-template-columns: 1fr; }
+    aside { height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+    #output-wrap { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="logo-dot"></span>MD FORGE</div>
+  <span class="header-sub">Markdown Concatenator</span>
+</header>
+
+<div class="workspace">
+  <aside>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" multiple accept=".md,.markdown,.txt">
+      <div class="drop-icon">📄</div>
+      <div class="drop-label">
+        <strong>ここにドロップ</strong><br>
+        またはクリックして選択<br>
+        <span style="font-size:10px">.md .markdown .txt</span>
+      </div>
+    </div>
+
+    <div class="section-label">
+      Files
+      <span class="count-badge" id="file-count">0</span>
+    </div>
+
+    <div class="file-list" id="file-list">
+      <div class="file-empty">ファイルなし</div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-primary" id="render-btn" disabled>Render</button>
+      <button class="btn btn-ghost" id="clear-btn">すべて削除</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">区切り</span>
+        <select class="sel" id="sep-select">
+          <option value="divider">区切り線</option>
+          <option value="filename">ファイル名</option>
+          <option value="none">なし</option>
+        </select>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <label class="toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" id="raw-toggle">
+          <span class="tslider"></span>
+        </label>
+        <span class="toolbar-label">RAW</span>
+      </label>
+
+      <label class="toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" id="autonumber-toggle">
+          <span class="tslider"></span>
+        </label>
+        <span class="toolbar-label">連番</span>
+      </label>
+
+      <div class="toolbar-right">
+        <span class="word-count" id="word-count"></span>
+        <button class="btn-sm" id="export-btn">⬇ Export .md</button>
+      </div>
+    </div>
+
+    <div id="output-wrap">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">📝</div>
+        <h3>ファイルを追加してください</h3>
+        <p>左のパネルに .md ファイルをドロップ<br>順番はドラッグで変更できます</p>
+      </div>
+    </div>
+    <div id="raw-output"></div>
+  </main>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  let files = [];
+  let dragSrcIdx = null;
+
+  const $ = id => document.getElementById(id);
+  const fileInput     = $('file-input');
+  const dropZone      = $('drop-zone');
+  const fileList      = $('file-list');
+  const fileCount     = $('file-count');
+  const renderBtn     = $('render-btn');
+  const clearBtn      = $('clear-btn');
+  const outputWrap    = $('output-wrap');
+  const rawOutput     = $('raw-output');
+  const emptyState    = $('empty-state');
+  const sepSelect     = $('sep-select');
+  const rawToggle     = $('raw-toggle');
+  const autonumToggle = $('autonumber-toggle');
+  const exportBtn     = $('export-btn');
+  const wordCountEl   = $('word-count');
+  const notif         = $('notif');
+
+  // FILE LOADING
+  fileInput.addEventListener('change', e => loadFileList(e.target.files));
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); loadFileList(e.dataTransfer.files); });
+
+  function loadFileList(fileArr) {
+    const arr = Array.from(fileArr);
+    Promise.all(arr.map(f => new Promise(res => {
+      const r = new FileReader();
+      r.onload = ev => res({ name: f.name, content: ev.target.result });
+      r.readAsText(f);
+    }))).then(loaded => {
+      files.push(...loaded);
+      renderSidebar();
+      doRender();
+      showNotif(`${loaded.length}件 読み込み完了`);
+    });
+    fileInput.value = '';
+  }
+
+  // SIDEBAR
+  function renderSidebar() {
+    fileCount.textContent = files.length;
+    renderBtn.disabled = files.length === 0;
+
+    if (files.length === 0) {
+      fileList.innerHTML = '<div class="file-empty">ファイルなし</div>';
+      return;
+    }
+    fileList.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.draggable = true;
+      item.innerHTML = `
+        <span class="drag-handle">⠿</span>
+        <span class="file-num">${i + 1}</span>
+        <span class="file-name" title="${f.name}">${f.name}</span>
+        <button class="file-del" data-i="${i}">×</button>
+      `;
+      item.addEventListener('dragstart', () => { dragSrcIdx = i; item.classList.add('dragging'); });
+      item.addEventListener('dragend', () => item.classList.remove('dragging'));
+      item.addEventListener('dragover', e => { e.preventDefault(); document.querySelectorAll('.file-item').forEach(el => el.classList.remove('drag-target')); item.classList.add('drag-target'); });
+      item.addEventListener('drop', e => {
+        e.preventDefault(); item.classList.remove('drag-target');
+        if (dragSrcIdx === null || dragSrcIdx === i) return;
+        const moved = files.splice(dragSrcIdx, 1)[0];
+        files.splice(i, 0, moved);
+        dragSrcIdx = null;
+        renderSidebar(); doRender();
+      });
+      item.querySelector('.file-del').addEventListener('click', e => {
+        files.splice(+e.currentTarget.dataset.i, 1);
+        renderSidebar();
+        files.length > 0 ? doRender() : resetOutput();
+      });
+      fileList.appendChild(item);
+    });
+  }
+
+  // RENDER
+  renderBtn.addEventListener('click', doRender);
+  sepSelect.addEventListener('change', () => files.length && doRender());
+  autonumToggle.addEventListener('change', () => files.length && doRender());
+
+  function doRender() {
+    if (!files.length) return;
+    if ($('empty-state')) emptyState.remove();
+
+    const sep = sepSelect.value;
+    const autoNum = autonumToggle.checked;
+    let html = '', rawParts = [];
+
+    files.forEach((f, i) => {
+      let content = f.content;
+      if (autoNum) content = content.replace(/^(# )(.+)$/m, (_, p1, p2) => `${p1}${i+1}. ${p2}`);
+      rawParts.push(content);
+
+      if (i > 0) {
+        const label = sep === 'filename' ? `📄 ${f.name}` : `${String(i+1).padStart(2,'0')}`;
+        if (sep !== 'none') html += `<div class="md-sep"><span>${label}</span></div>`;
+      }
+      html += `<div class="md-body">${marked.parse(content)}</div>`;
+    });
+
+    outputWrap.innerHTML = html;
+
+    const joiner = sep === 'none' ? '\n\n' : '\n\n---\n\n';
+    const rawFull = rawParts.join(joiner);
+    rawOutput.textContent = rawFull;
+
+    const wc = rawFull.trim().split(/\s+/).filter(Boolean).length;
+    wordCountEl.textContent = `${wc.toLocaleString()} words`;
+  }
+
+  function resetOutput() {
+    outputWrap.innerHTML = '';
+    outputWrap.appendChild(emptyState);
+    rawOutput.textContent = '';
+    wordCountEl.textContent = '';
+  }
+
+  // RAW TOGGLE
+  rawToggle.addEventListener('change', () => {
+    outputWrap.style.display = rawToggle.checked ? 'none' : '';
+    rawOutput.style.display  = rawToggle.checked ? 'block' : 'none';
+  });
+
+  // CLEAR
+  clearBtn.addEventListener('click', () => { files = []; renderSidebar(); resetOutput(); });
+
+  // EXPORT
+  exportBtn.addEventListener('click', () => {
+    if (!rawOutput.textContent) { showNotif('コンテンツがありません'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rawOutput.textContent], { type: 'text/markdown' }));
+    a.download = 'forged_' + Date.now() + '.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showNotif('エクスポート完了');
+  });
+
+  // NOTIFICATION
+  let notifTimer;
+  function showNotif(msg) {
+    clearTimeout(notifTimer);
+    notif.textContent = msg;
+    notif.classList.add('show');
+    notifTimer = setTimeout(() => notif.classList.remove('show'), 2200);
+  }
+
+  // GLOBAL DROP
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    if (e.target.closest('#drop-zone') || e.target.closest('#file-list')) return;
+    loadFileList(e.dataTransfer.files);
+  });
+
+  // KEYBOARD
+  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') doRender(); });
+</script>
+</body>
+</html>
