@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MD FORGE</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -367,12 +368,12 @@
 <div class="workspace">
   <aside>
     <div class="drop-zone" id="drop-zone">
-      <input type="file" id="file-input" multiple accept=".md,.markdown,.txt">
+      <input type="file" id="file-input" multiple accept=".md,.markdown,.txt,.docx">
       <div class="drop-icon">📄</div>
       <div class="drop-label">
         <strong>ここにドロップ</strong><br>
         またはクリックして選択<br>
-        <span style="font-size:10px">.md .markdown .txt</span>
+        <span style="font-size:10px">.md .markdown .txt .docx</span>
       </div>
     </div>
 
@@ -430,7 +431,7 @@
       <div class="empty-state" id="empty-state">
         <div class="empty-icon">📝</div>
         <h3>ファイルを追加してください</h3>
-        <p>左のパネルに .md ファイルをドロップ<br>順番はドラッグで変更できます</p>
+        <p>左のパネルに .md / .docx ファイルをドロップ<br>順番はドラッグで変更できます</p>
       </div>
     </div>
     <div id="raw-output"></div>
@@ -471,14 +472,25 @@
   function loadFileList(fileArr) {
     const arr = Array.from(fileArr);
     Promise.all(arr.map(f => new Promise(res => {
-      const r = new FileReader();
-      r.onload = ev => res({ name: f.name, content: ev.target.result });
-      r.readAsText(f);
+      if (f.name.toLowerCase().endsWith('.docx')) {
+        const r = new FileReader();
+        r.onload = ev => {
+          mammoth.convertToMarkdown({ arrayBuffer: ev.target.result })
+            .then(result => res({ name: f.name, content: result.value }))
+            .catch(() => { showNotif(`${f.name} の変換に失敗しました`); res(null); });
+        };
+        r.readAsArrayBuffer(f);
+      } else {
+        const r = new FileReader();
+        r.onload = ev => res({ name: f.name, content: ev.target.result });
+        r.readAsText(f);
+      }
     }))).then(loaded => {
-      files.push(...loaded);
+      const valid = loaded.filter(Boolean);
+      files.push(...valid);
       renderSidebar();
       doRender();
-      showNotif(`${loaded.length}件 読み込み完了`);
+      if (valid.length) showNotif(`${valid.length}件 読み込み完了`);
     });
     fileInput.value = '';
   }
